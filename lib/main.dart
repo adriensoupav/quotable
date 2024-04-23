@@ -1,10 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:quotable/auth/login_screen.dart';
+import 'package:quotable/home_page.dart';
+import 'firebase_options.dart';
 
-void main() {
-  runApp(ImageOverlayApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  runApp(QuotableApp());
 }
 
-class ImageOverlayApp extends StatelessWidget {
+class QuotableApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -13,152 +22,35 @@ class ImageOverlayApp extends StatelessWidget {
         primarySwatch: Colors.lightBlue,
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
-      home: HomePage(),
+      home: AuthenticationWrapper(),
     );
   }
 }
 
-class HomePage extends StatefulWidget {
-  @override
-  _HomePageState createState() => _HomePageState();
-}
-
-class _HomePageState extends State<HomePage> {
-  final TextEditingController _textController = TextEditingController();
-  final TextEditingController _authorController = TextEditingController();
-  String? _backgroundImageUrl;
-
+class AuthenticationWrapper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Quotable'),
-        backgroundColor: Colors.lightBlue.shade300,
-      ),
-      body: Padding(
-        padding: EdgeInsets.all(16.0),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: <Widget>[
-              buildTextField(_textController, 'Enter quote', 'Quote'),
-              SizedBox(height: 8),
-              buildTextField(_authorController, 'Enter author', 'Author'),
-              SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _generateImage,
-                style: ElevatedButton.styleFrom(
-                  primary: Colors.lightBlue.shade600,
-                  onPrimary: Colors.white,
-                ),
-                child: Text('Generate'),
-              ),
-              if (_backgroundImageUrl != null) ...[
-                SizedBox(height: 16),
-                Stack(
-                  alignment: Alignment.center,
-                  children: <Widget>[
-                    Image.network(
-                      _backgroundImageUrl!,
-                      width: double.infinity,
-                      height: MediaQuery.of(context).size.height * 0.5,
-                      fit: BoxFit.cover,
-                    ),
-                    Container(
-                      padding: EdgeInsets.all(12.0),
-                      decoration: BoxDecoration(
-                        color: Colors.black45,
-                        borderRadius: BorderRadius.circular(8.0),
-                      ),
-                      child: Text(
-                        '"${_textController.text}"\n- ${_authorController.text}',
-                        style: TextStyle(
-                          fontSize: 24,
-                          color: Colors.white,
-                          fontStyle: FontStyle.italic,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ],
-                ),
-                ButtonBar(
-                  alignment: MainAxisAlignment.center,
-                  children: <Widget>[
-                    ElevatedButton(
-                      onPressed: _changeImage,
-                      style: ElevatedButton.styleFrom(
-                        primary: Colors.lightBlue.shade400,
-                        onPrimary: Colors.white,
-                      ),
-                      child: Text('Change Image'),
-                    ),
-                    ElevatedButton(
-                      onPressed: _changeText,
-                      style: ElevatedButton.styleFrom(
-                        primary: Colors.lightBlue.shade300,
-                        onPrimary: Colors.white,
-                      ),
-                      child: Text('Change Text'),
-                    ),
-                    ElevatedButton(
-                      onPressed: _reset,
-                      style: ElevatedButton.styleFrom(
-                        primary: Colors.grey.shade400,
-                        onPrimary: Colors.white,
-                      ),
-                      child: Text('Reset'),
-                    ),
-                  ],
-                ),
-              ],
-            ],
+    // Use a StreamBuilder to listen for changes in the user's authentication state
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (BuildContext context, AsyncSnapshot<User?> snapshot) {
+        // If the connection to the stream is active and we have data (user is logged in)
+        // then return the HomePage, otherwise show the LoginScreen
+        if (snapshot.connectionState == ConnectionState.active) {
+          User? user = snapshot.data;
+          if (user == null) {
+            return LoginScreen(); // Show the login screen if user is not signed in
+          }
+          return HomePage(); // Take the user to the HomePage if they are signed in
+        }
+
+        // While the connection to the stream is not active, show a loading indicator
+        return Scaffold(
+          body: Center(
+            child: CircularProgressIndicator(),
           ),
-        ),
-      ),
+        );
+      },
     );
-  }
-
-  TextField buildTextField(TextEditingController controller, String label, String hint) {
-    return TextField(
-      controller: controller,
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-        border: OutlineInputBorder(),
-        filled: true,
-        fillColor: Colors.lightBlue.shade50,
-      ),
-    );
-  }
-
-  void _generateImage() {
-    setState(() {
-      if (_backgroundImageUrl == null) {
-        _backgroundImageUrl = 'https://source.unsplash.com/random/800x600';
-      }
-    });
-  }
-
-  void _changeImage() {
-    setState(() {
-      // Use a different random seed for the image URL to fetch a new image
-      _backgroundImageUrl = 'https://source.unsplash.com/random/800x600?sig=${DateTime.now().millisecondsSinceEpoch}';
-    });
-  }
-
-  void _changeText() {
-    // Clear text fields without affecting the image
-    _textController.clear();
-    _authorController.clear();
-  }
-
-  void _reset() {
-    // Clear both text fields and image
-    _textController.clear();
-    _authorController.clear();
-    setState(() {
-      _backgroundImageUrl = null;
-    });
   }
 }
