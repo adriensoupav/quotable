@@ -4,19 +4,30 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:quotable/auth/login_screen.dart';
 import 'package:quotable/home_page.dart';
 import 'firebase_options.dart';
+import 'dart:io';
+
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  HttpOverrides.global = MyHttpOverrides();
   runApp(QuotableApp());
 }
 
+class MyHttpOverrides extends HttpOverrides {
+  @override
+  HttpClient createHttpClient(SecurityContext? context) {
+    return super.createHttpClient(context)
+      ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+  }
+}
 class QuotableApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'Quotable',
       theme: ThemeData(
         primarySwatch: Colors.lightBlue,
